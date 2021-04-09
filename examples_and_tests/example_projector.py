@@ -13,7 +13,6 @@ from deepdrr import utils
 from deepdrr import Volume, CArm, Projector
 from deepdrr import geo
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -23,14 +22,14 @@ def main():
     volume[0, 0, :] = 1
     volume[0, -1, :] = 1
     volume[-1, 0, :] = 1
-    volume[-1,-1, :] = 1
+    volume[-1, -1, :] = 1
     volume[:, 0, 0] = 1
     volume[:, 0, -1] = 1
     volume[:, -1, 0] = 1
     volume[:, -1, -1] = 1
     volume[0, :, 0] = 1
     volume[0, :, -1] = 1
-    volume[-1,:, 0] = 1
+    volume[-1, :, 0] = 1
     volume[-1, :, -1] = 1
 
     volume[40:60, 40:60, 40:60] = 1
@@ -47,11 +46,11 @@ def main():
     # Create the volume object with segmentation
     volume = Volume.from_parameters(
         data=volume,
-        materials=materials, 
-        origin=origin, 
+        materials=materials,
+        origin=origin,
         spacing=voxel_size,
-        anatomical_coordinate_system=None, # LPS, RAS, or None.
-        world_from_anatomical=None, # anatomical coordinate system is same as world
+        anatomical_coordinate_system=None,  # LPS, RAS, or None.
+        world_from_anatomical=None,  # anatomical coordinate system is same as world
     )
 
     # defines the C-Arm device, which is a convenience class for positioning the Camera.
@@ -77,17 +76,17 @@ def main():
 
     t = time()
     with Projector(
-        volume=volume,
-        camera_intrinsics=camera_intrinsics,
-        carm=carm,
-        step=0.1, # stepsize along projection ray, measured in voxels
-        mode='linear',
-        max_block_index=200,
-        spectrum='90KV_AL40',
-        photon_count=100000,
-        add_scatter=False,
-        threads=8,
-        neglog=True,
+            volume=volume,
+            camera_intrinsics=camera_intrinsics,
+            carm=carm,
+            step=0.1,  # stepsize along projection ray, measured in voxels
+            mode='linear',
+            max_block_index=200,
+            spectrum='90KV_AL40',
+            photon_count=100000,
+            add_scatter=False,
+            threads=8,
+            neglog=True,
     ) as projector:
         images = projector.project_over_carm_range(
             (min_phi, max_phi, spacing_phi),
