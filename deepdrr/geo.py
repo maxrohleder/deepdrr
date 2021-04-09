@@ -774,15 +774,85 @@ class CameraProjection(Transform):
                  from world coordinates, i.e. camera3d_from_world.
 
         """
-        self.index_from_camera2d = intrinsic if isinstance(intrinsic, CameraIntrinsicTransform) else CameraIntrinsicTransform(intrinsic)
+        data = intrinsic @ extrinsic
+        super().__init__(data)
+
+        self.index_from_camera2d = intrinsic if isinstance(intrinsic,
+                                                           CameraIntrinsicTransform) else CameraIntrinsicTransform(
+            intrinsic)
         self.camera3d_from_world = extrinsic if isinstance(extrinsic, FrameTransform) else FrameTransform(extrinsic)
+
+        # check data last, as CameraIntrinsicTransform and FrameTransform whould check component-shapes first
+        assert self.data.shape == (3, 4), f'unrecognized shape: {self.data.shape}'
+
+    @classmethod
+    def from_matrix(
+            cls,
+            P: np.ndarray
+    ) -> CameraProjection:
+        """Decompose the given 3x4 projection matrix into intrinsic and extrinsic parameters.
+        Tested with Siemens C-Arm matrices. They can be obtained from DICOM header of projection-data.
+
+        Naming convention from:
+        - https://ksimek.github.io/2012/08/14/decompose/
+
+        Args:
+            P (np.ndarray): the 3x4 projection matrix from 3d world coordinates to 2d image indices.
+
+        Returns:
+            An instance of a CameraProjection created from the supplied matrix
+        """
+        assert P.shape == (3, 4), "A projection matrix must be of shape (3, 4)"
+
+        # 1. Split P in 3x3 (first three columns) matrix and 3x vector (forthcolumn)
+        M, negMC = P[:, :3].copy(), P[:, 3].copy()
+
+        # 2. RQ - factorisation of 3x3 matrix M yields K and R
+        M_flip = np.flipud(M).T
+        Q_flip, R_flip = np.linalg.qr(M_flip)
+        T = np.diag(np.sign(np.diag(R_flip)))  # make diagonally positive
+        Q_flip, R_flip = Q_flip @ T, T @ R_flip
+        K = np.fliplr(np.flipud(R_flip.T))  # apply flips to convert qr to rq decomposition
+        R = np.flipud(Q_flip.T)
+        assert np.allclose(M, K @ R)  # make sure that decomposition worked
+
+        # 3. Calculate translation by back substitution
+        t = np.zeros(3)
+        t[2] = negMC[2] / K[2, 2]
+        t[1] = (negMC[1] - K[1, 2] * t[2]) / K[1, 1]
+        t[0] = (negMC[0] - K[0, 1] * t[1] - K[0, 2] * t[2]) / K[0, 0]
+
+        # verify validity through alternative computation
+        C = -1 * np.linalg.inv(M) @ negMC  # camera center in world
+        t2 = -1 * R @ C
+        # assert np.allclose(t2, t) fails for values of t << 1
+
+        # 4. Make positive and adjust sourcepoint if negative determinant (ccw-rotation)
+        if np.linalg.det(R) < 0:
+            R *= -1
+            negMC *= -1
+
+        # 5. Scale the camera intrinsic to world domain
+        K *= (1 / K[2, 2])
+
+        # check validity of decomposition P = K @ [R|t]
+        P_composed = np.matmul(K, np.hstack((R, t.reshape(3, 1)))) / t[2]
+        assert np.allclose(P_composed, P)
+
+        # 6. Invert sensor direction in x (reconstruction algorithms fail otherwise)
+        width = np.ceil(2 * K[1, 2])
+        FLIPX = np.array([[-1, 0, width], [0, 1, 0], [0, 0, 1]])
+        K = FLIPX @ K
+
+        # create instance from RtK
+        return cls(intrinsic=K, extrinsic=FrameTransform.from_rt(R, t))
 
     @classmethod
     def from_rtk(
-        cls,
-        R: np.ndarray,
-        t: Point3D,
-        K: Union[CameraIntrinsicTransform, np.ndarray],
+            cls,
+            R: np.ndarray,
+            t: Point3D,
+            K: Union[CameraIntrinsicTransform, np.ndarray],
     ):
         return cls(intrinsic=K, extrinsic=FrameTransform.from_rt(R, t))
         

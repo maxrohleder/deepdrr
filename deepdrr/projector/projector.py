@@ -285,10 +285,17 @@ class Projector(object):
 
         return self.project(*camera_projections)
 
+    def project_with_matrices(self, *projection_matrices: np.ndarray):
+        # 1. convert matrices to CameraProjections
+        camera_projections = [geo.CameraProjection.from_matrix(proj) for proj in projection_matrices]
+
+        # 2. start projections
+        return self.project(*camera_projections)
+
     @property
     def output_shape(self):
         return (self.sensor_size[0], self.sensor_size[1], self.num_materials)
-    
+
     @property
     def output_size(self):
         return self.sensor_size[0] * self.sensor_size[1] * self.num_materials
