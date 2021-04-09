@@ -210,12 +210,12 @@ class Projector(object):
         Returns:
             np.ndarray: array of DRRs, after mass attenuation, etc.
         """
-        logger.debug(f'carm isocenter: {self.carm.isocenter}')
         if not camera_projections and self.carm is None:
             raise ValueError('must provide a camera projection object to the projector, unless imaging device (e.g. CArm) is provided')
         elif not camera_projections and self.carm is not None:
             camera_projections = [geo.CameraProjection(self.camera_intrinsics, self.carm.camera3d_from_world)]
-        
+            logger.debug(f'carm isocenter: {self.carm.isocenter}')
+
         outputs = []
 
         for proj in camera_projections:
