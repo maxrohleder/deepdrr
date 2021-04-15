@@ -800,9 +800,9 @@ def decompose_matrix(
     assert np.allclose(P_composed, p)
 
     # 6. Invert sensor direction in x (reconstruction algorithms fail otherwise) TODO testing
-    width = np.ceil(2 * K[1, 2])
-    FLIPX = np.array([[-1, 0, width], [0, 1, 0], [0, 0, 1]])
-    K = FLIPX @ K
+    # width = np.ceil(2 * K[1, 2])
+    # FLIPX = np.array([[-1, 0, width], [0, 1, 0], [0, 0, 1]])
+    # K = FLIPX @ K
 
     # return intrinsic and extrinsic
     return CameraIntrinsicTransform(K), FrameTransform.from_rt(R, t)
@@ -833,8 +833,8 @@ class CameraProjection(Transform):
             # set attributes from parameters
             self.index_from_camera2d, self.camera3d_from_world = decompose_matrix(data)
 
-            # check if decomposition worked right
-            assert np.allclose(data, self.index_from_world.data)
+            # check if decomposition worked right (normalize index_from_world)
+            assert np.allclose(data, self.index_from_world.data / self.index_from_world.data[2, 3])
         else:
             # make sure both params were given
             assert (intrinsic is not None) and (

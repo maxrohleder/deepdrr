@@ -58,8 +58,9 @@ def main():
             photon_count=100000,
             add_scatter=False,
             threads=8,
-            neglog=False,
+            neglog=True,
     ) as projector:
+        logger.info(f"starting projection after {time() - t} seconds")
         images = projector.project_with_matrices(*projection_matrices)
     dt = time() - t
     logger.info(f"projected {images.shape[0]} views in {dt:.03f}s")
