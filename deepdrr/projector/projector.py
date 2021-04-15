@@ -280,14 +280,14 @@ class Projector(object):
             )
 
             camera_projections.append(
-                geo.CameraProjection(self.camera_intrinsics, extrinsic)
+                geo.CameraProjection.from_intrinsic_extrinsic(self.camera_intrinsics, extrinsic)
             )
 
         return self.project(*camera_projections)
 
     def project_with_matrices(self, *projection_matrices: np.ndarray):
         # 1. convert matrices to CameraProjections
-        camera_projections = [geo.CameraProjection.from_matrix(proj) for proj in projection_matrices]
+        camera_projections = [geo.CameraProjection(proj) for proj in projection_matrices]
 
         # 2. start projections
         return self.project(*camera_projections)

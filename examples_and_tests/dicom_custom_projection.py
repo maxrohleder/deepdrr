@@ -9,10 +9,25 @@ from pathlib import Path
 from time import time
 import xmltodict
 
-from deepdrr import Volume, CArm, Projector
+from deepdrr import Volume, Projector
 from deepdrr import geo
 
 logger = logging.getLogger(__name__)
+
+
+def spin_matrices_from_xml(path_to_projection_matrices: str) -> list[np.ndarray]:
+    with open(path_to_projection_matrices) as fd:
+        contents = xmltodict.parse(fd.read())
+        matrices = contents['hdr']['ElementList']['PROJECTION_MATRICES']
+        # backprojection matrices project 2d-projections into 3d-space (homogenous coordinates allow for translation)
+        proj_mat = []
+        # parsing the ordered dict to numpy matrices
+        for i, key in enumerate(matrices.keys()):
+            value_string = matrices[key]
+            # expecting 12 entries to construct 3x4 matrix in row-major order (C-contiguous)
+            proj_mat.append(np.array(value_string.split(" "), order='C').astype(np.float32).reshape((3, 4)))
+    logger.info(f"loaded {len(proj_mat)} projection matrices")
+    return proj_mat
 
 
 def main():
@@ -22,12 +37,6 @@ def main():
     # load volume from dicom
     volume = Volume.from_dicom(ct_volume)
 
-    # defines the C-Arm device, which is a convenience class for positioning the Camera.
-    carm = CArm(
-        isocenter=geo.point(0, 0, 0),
-        isocenter_distance=800,
-    )
-
     # camera intrinsics (only used to determine the sensor_size?) TODO maybe make this more explicit
     camera_intrinsics = geo.CameraIntrinsicTransform.from_sizes(
         sensor_size=(976, 976),
@@ -35,19 +44,13 @@ def main():
         source_to_detector_distance=1164,
     )
 
-    # Angles to take projections over
-    min_theta = 90
-    max_theta = 91.5
-    min_phi = 0
-    max_phi = 201
-    spacing_theta = 1
-    spacing_phi = 40
+    # load projection matrices as list of np.ndarrays
+    projection_matrices = spin_matrices_from_xml('SpinProjMatrix_5proj.xml')
 
     t = time()
     with Projector(
             volume=volume,
             camera_intrinsics=camera_intrinsics,
-            carm=carm,
             step=0.1,  # stepsize along projection ray, measured in voxels
             mode='linear',
             max_block_index=200,
@@ -55,11 +58,9 @@ def main():
             photon_count=100000,
             add_scatter=False,
             threads=8,
-            neglog=True,
+            neglog=False,
     ) as projector:
-        images = projector.project_over_carm_range(
-            (min_phi, max_phi, spacing_phi),
-            (min_theta, max_theta, spacing_theta))
+        images = projector.project_with_matrices(*projection_matrices)
     dt = time() - t
     logger.info(f"projected {images.shape[0]} views in {dt:.03f}s")
 
@@ -68,7 +69,7 @@ def main():
     os.makedirs(out_path, exist_ok=True)  # directories might already exist
 
     # save drr in tiff (float32)
-    out = os.path.abspath(os.path.join(out_path, "example_trajectory.tiff"))
+    out = os.path.abspath(os.path.join(out_path, "new_drr.tiff"))
     imsave(out, images)
     print("saved a tiff file to ", out)
 
