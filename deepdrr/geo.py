@@ -889,13 +889,13 @@ class CameraProjection(Transform):
         return self.camera3d_from_world
 
     @property
-    def index_from_world(self) -> FrameTransform:
+    def index_from_world(self) -> Transform:
         proj = np.concatenate([np.eye(3), np.zeros((3, 1))], axis=1)
         camera2d_from_camera3d = Transform(proj, _inv=proj.T)
         return self.index_from_camera2d @ camera2d_from_camera3d @ self.camera3d_from_world
 
     @property
-    def world_from_index(self) -> FrameTransform:
+    def world_from_index(self) -> Transform:
         return self.index_from_world.inv
 
     @property
