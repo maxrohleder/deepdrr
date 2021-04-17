@@ -210,12 +210,12 @@ class Projector(object):
         Returns:
             np.ndarray: array of DRRs, after mass attenuation, etc.
         """
-        logger.debug(f'carm isocenter: {self.carm.isocenter}')
         if not camera_projections and self.carm is None:
             raise ValueError('must provide a camera projection object to the projector, unless imaging device (e.g. CArm) is provided')
         elif not camera_projections and self.carm is not None:
             camera_projections = [geo.CameraProjection(self.camera_intrinsics, self.carm.camera3d_from_world)]
-        
+            logger.debug(f'carm isocenter: {self.carm.isocenter}')
+
         outputs = []
 
         for proj in camera_projections:
@@ -280,15 +280,22 @@ class Projector(object):
             )
 
             camera_projections.append(
-                geo.CameraProjection(self.camera_intrinsics, extrinsic)
+                geo.CameraProjection.from_intrinsic_extrinsic(self.camera_intrinsics, extrinsic)
             )
 
+        return self.project(*camera_projections)
+
+    def project_with_matrices(self, *projection_matrices: np.ndarray):
+        # 1. convert matrices to CameraProjections
+        camera_projections = [geo.CameraProjection(proj) for proj in projection_matrices]
+
+        # 2. start projections
         return self.project(*camera_projections)
 
     @property
     def output_shape(self):
         return (self.sensor_size[0], self.sensor_size[1], self.num_materials)
-    
+
     @property
     def output_size(self):
         return self.sensor_size[0] * self.sensor_size[1] * self.num_materials

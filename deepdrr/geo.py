@@ -110,7 +110,7 @@ class HomogeneousObject(ABC):
 
     def __array__(self):
         return self.to_array()
-            
+
     def __str__(self):
         return np.array_str(self.data, suppress_small=True)
 
@@ -134,7 +134,7 @@ class HomogeneousPointOrVector(HomogeneousObject):
     ) -> None:
         """Instantiate the homogeneous point or vector and check its dimension."""
         super().__init__(data)
-        
+
         if self.data.shape != (self.dim + 1,):
             raise ValueError(f'invalid shape for {self.dim}D object in homogeneous coordinates: {self.data.shape}')
 
@@ -142,12 +142,12 @@ class HomogeneousPointOrVector(HomogeneousObject):
         """Return non-homogeneous numpy representation of object."""
         return _from_homogeneous(self.data, is_point=bool(self.data[-1]))
 
-    
+
 class Point(HomogeneousPointOrVector):
     def __init__(self, data: np.ndarray) -> None:
         assert data[-1] == 1
         super().__init__(data)
-        
+
     @classmethod
     def from_array(
             cls: Type[T],
@@ -197,7 +197,7 @@ class Vector(HomogeneousPointOrVector):
     def __init__(self, data: np.ndarray) -> None:
         assert data[-1] == 0
         super().__init__(data)
-        
+
     @classmethod
     def from_array(
             cls: Type[T],
@@ -214,7 +214,7 @@ class Vector(HomogeneousPointOrVector):
     ):
         """ If other is not a Vector, make it one. """
         return other if issubclass(type(other), Vector) else cls.from_array(other)
-    
+
     def __mul__(self, other: Union[int, float]):
         """ Vectors can be multiplied by scalars. """
         if isinstance(other, (int, float)):
@@ -256,7 +256,7 @@ class Point2D(Point):
 class Vector2D(Vector):
     """Homogeneous vector in 2D, represented as an array with [x, y, 0]"""
     dim = 2
-    
+
 
 class Point3D(Point):
     """Homogeneous point in 3D, represented as an array with [x, y, z, 1]"""
@@ -309,7 +309,7 @@ def point(*x: Union[np.ndarray, float, Point2D, Point3D]) -> Union[Point2D, Poin
         return Point3D.from_array(x)
     else:
         raise ValueError(f'invalid data for point: {x}')
-    
+
 
 def vector(*v: Union[np.ndarray, float, Vector2D, Vector3D]) -> Union[Vector2D, Vector3D]:
     """The preferred method for creating a vector.
@@ -356,9 +356,9 @@ Transforms
 
 class Transform(HomogeneousObject):
     def __init__(
-        self, 
-        data: np.ndarray, 
-        _inv: Optional[np.ndarray] = None
+            self,
+            data: np.ndarray,
+            _inv: Optional[np.ndarray] = None
     ) -> None:
         """A geometric transform represented as a matrix multiplication on homogeneous points or vectors.
 
@@ -435,7 +435,7 @@ class Transform(HomogeneousObject):
             other: PointOrVector,
     ) -> PointOrVector:
         return self @ other
-    
+
     @property
     def inv(self) -> Transform:
         """Get the inverse of the Transform.
@@ -486,17 +486,17 @@ class FrameTransform(Transform):
 
         """
         super().__init__(data)
-        
+
     @property
     def dim(self):
         return self.data.shape[0] - 1
-    
+
     @classmethod
     def from_rt(
-        cls,
-        rotation: Optional[np.ndarray] = None,
-        translation: Optional[Union[Point3D, np.ndarray]] = None,
-        dim: Optional[int] = None,
+            cls,
+            rotation: Optional[np.ndarray] = None,
+            translation: Optional[Union[Point3D, np.ndarray]] = None,
+            dim: Optional[int] = None,
     ) -> FrameTransform:
         """Make a frame translation from a rotation and translation, as [R,t], where x' = Rx + t.
 
@@ -555,8 +555,8 @@ class FrameTransform(Transform):
 
     @classmethod
     def from_translation(
-        cls,
-        translation: np.ndarray,
+            cls,
+            translation: np.ndarray,
     ) -> FrameTransform:
         """Wrapper around from_rt."""
         return cls.from_rt(translation)
@@ -571,8 +571,8 @@ class FrameTransform(Transform):
 
     @classmethod
     def from_origin(
-        cls,
-        origin: Point,
+            cls,
+            origin: Point,
     ) -> FrameTransform:
         """Suppose `origin` is point where frame B has its origin, as a point in frame A. Get the B_from_A transform.
 
@@ -626,11 +626,11 @@ class CameraIntrinsicTransform(FrameTransform):
 
     @classmethod
     def from_parameters(
-        cls,
-        optical_center: Point2D,
-        focal_length: Union[float, Tuple[float, float]] = 1,
-        shear: float = 0,
-        aspect_ratio: Optional[float] = None,
+            cls,
+            optical_center: Point2D,
+            focal_length: Union[float, Tuple[float, float]] = 1,
+            shear: float = 0,
+            aspect_ratio: Optional[float] = None,
     ) -> CameraIntrinsicTransform:
         """The camera intrinsic matrix, which is fundamentally a FrameTransform in 2D, namely `index_from_camera2d`.
 
@@ -682,10 +682,10 @@ class CameraIntrinsicTransform(FrameTransform):
 
     @classmethod
     def from_sizes(
-        cls, 
-        sensor_size: Union[int, Tuple[int, int]],
-        pixel_size: Union[float, Tuple[float, float]],
-        source_to_detector_distance: float,
+            cls,
+            sensor_size: Union[int, Tuple[int, int]],
+            pixel_size: Union[float, Tuple[float, float]],
+            source_to_detector_distance: float,
     ) -> CameraIntrinsicTransform:
         """Generate the camera from human-readable parameters.
 
@@ -721,7 +721,7 @@ class CameraIntrinsicTransform(FrameTransform):
     def fy(self) -> float:
         return self.data[1, 1]
 
-    @property 
+    @property
     def aspect_ratio(self) -> float:
         """Image aspect ratio."""
         return self.fy / self.fx
@@ -751,16 +751,104 @@ class CameraIntrinsicTransform(FrameTransform):
         return (self.sensor_width, self.sensor_height)
 
 
+def decompose_matrix(
+        p: np.ndarray
+) -> (CameraIntrinsicTransform, FrameTransform):
+    """Decompose the given 3x4 projection matrix into intrinsic and extrinsic parameters.
+    Tested with Siemens C-Arm matrices. They can be obtained from DICOM header of projection-data.
+
+    Naming convention from:
+    - https://ksimek.github.io/2012/08/14/decompose/
+
+    Args:
+        p (np.ndarray): the 3x4 projection matrix from 3d world coordinates to 2d image indices.
+
+    Returns:
+        intrinsic (CameraIntrinsicTransform): a transform in 2d space which encodes the view
+        extrinsic (FrameTransform): a transform in 3d space which encodes position and orientation
+    """
+    assert p.shape == (3, 4), "A projection matrix must be of shape (3, 4)"
+
+    # 1. Split P in 3x3 (first three columns) matrix and 3x vector (forthcolumn)
+    M, negMC = p[:, :3].copy(), p[:, 3].copy()
+
+    # 2. RQ - factorisation of 3x3 matrix M yields K and R
+    M_flip = np.flipud(M).T
+    Q_flip, R_flip = np.linalg.qr(M_flip)
+    T = np.diag(np.sign(np.diag(R_flip)))  # make diagonally positive
+    Q_flip, R_flip = Q_flip @ T, T @ R_flip
+    K = np.fliplr(np.flipud(R_flip.T))  # apply flips to convert qr to rq decomposition
+    R = np.flipud(Q_flip.T)
+    assert np.allclose(M, K @ R)  # make sure that decomposition worked
+
+    # 3. Calculate translation by back substitution
+    t = np.zeros(3)
+    t[2] = negMC[2] / K[2, 2]
+    t[1] = (negMC[1] - K[1, 2] * t[2]) / K[1, 1]
+    t[0] = (negMC[0] - K[0, 1] * t[1] - K[0, 2] * t[2]) / K[0, 0]
+
+    # 4. Make positive and adjust sourcepoint if negative determinant (ccw-rotation)
+    if np.linalg.det(R) < 0:
+        R *= -1
+        negMC *= -1
+
+    # 5. Scale the camera intrinsic to world domain
+    K *= (1 / K[2, 2])
+
+    # check validity of decomposition P = K @ [R|t]
+    P_composed = np.matmul(K, np.hstack((R, t.reshape(3, 1)))) / t[2]
+    assert np.allclose(P_composed, p)
+
+    # 6. Invert sensor direction in x (reconstruction algorithms fail otherwise) TODO testing
+    # width = np.ceil(2 * K[1, 2])
+    # FLIPX = np.array([[-1, 0, width], [0, 1, 0], [0, 0, 1]])
+    # K = FLIPX @ K
+
+    # return intrinsic and extrinsic
+    return CameraIntrinsicTransform(K), FrameTransform.from_rt(R, t)
+
+
 class CameraProjection(Transform):
     dim = 3
     index_from_camera2d: CameraIntrinsicTransform
     camera3d_from_world: FrameTransform
 
-    def __init__(
-        self,
-        intrinsic: Union[CameraIntrinsicTransform, np.ndarray],
-        extrinsic: Union[FrameTransform, np.ndarray],
-    ) -> None:
+    def __init__(self,
+                 data: np.ndarray,
+                 intrinsic: CameraIntrinsicTransform = None,
+                 extrinsic: FrameTransform = None) -> None:
+        """
+        Creates a CameraProjection instance from a 3x4 matrix. Supports the creation from derived intrinsic and
+        extrinsic, but the use of from_intrinsic_extrinsic is encouraged.
+        Args:
+            data: a 3x4 matrix which maps a 3d point in world coordinates onto the 2d detector space
+            intrinsic: a CameraIntrinsicTransform which encodes viewing parameters
+            extrinsic: a FrameTransform which positions the camera in world space
+        """
+        # projection matrix maps homogenous 3d vector onto homog. 2d vector
+        assert data.shape == (3, 4), f'unrecognized shape: {self.data.shape}'
+
+        # use intrinsic and extrinsic if given, else calculate from given matrix
+        if (intrinsic is None) or (extrinsic is None):
+            # set attributes from parameters
+            self.index_from_camera2d, self.camera3d_from_world = decompose_matrix(data)
+
+            # check if decomposition worked right (normalize index_from_world)
+            assert np.allclose(data, self.index_from_world.data / self.index_from_world.data[2, 3])
+        else:
+            # make sure both params were given
+            assert (intrinsic is not None) and (
+                    extrinsic is not None), f"Missing {'intrinsic' if intrinsic is None else 'extrinsic'}"
+            self.index_from_camera2d, self.camera3d_from_world = intrinsic, extrinsic
+
+        # init superclass with calculated matrices
+        super().__init__(data=self.index_from_world.data, _inv=self.world_from_index.data)
+
+    @classmethod
+    def from_intrinsic_extrinsic(cls,
+                                 intrinsic: Union[CameraIntrinsicTransform, np.ndarray],
+                                 extrinsic: Union[FrameTransform, np.ndarray]
+                                 ) -> CameraProjection:
         """A generic camera projection.
 
         A helpful resource for this is:
@@ -774,18 +862,24 @@ class CameraProjection(Transform):
                  from world coordinates, i.e. camera3d_from_world.
 
         """
-        self.index_from_camera2d = intrinsic if isinstance(intrinsic, CameraIntrinsicTransform) else CameraIntrinsicTransform(intrinsic)
-        self.camera3d_from_world = extrinsic if isinstance(extrinsic, FrameTransform) else FrameTransform(extrinsic)
+        # cast to wrapper classes if necessary
+        intrinsic = intrinsic if isinstance(intrinsic, CameraIntrinsicTransform) else CameraIntrinsicTransform(
+            intrinsic)
+        extrinsic = extrinsic if isinstance(extrinsic, FrameTransform) else FrameTransform(extrinsic)
+
+        # create an instance from the given parameters
+        placeholder = np.zeros((3, 4))  # this is not used for construction TODO maybe find a less hacky solution
+        return cls(placeholder, intrinsic=intrinsic, extrinsic=extrinsic)
 
     @classmethod
     def from_rtk(
-        cls,
-        R: np.ndarray,
-        t: Point3D,
-        K: Union[CameraIntrinsicTransform, np.ndarray],
-    ):
+            cls,
+            R: np.ndarray,
+            t: Point3D,
+            K: Union[CameraIntrinsicTransform, np.ndarray],
+    ) -> CameraProjection:
         return cls(intrinsic=K, extrinsic=FrameTransform.from_rt(R, t))
-        
+
     @property
     def intrinsic(self) -> CameraIntrinsicTransform:
         return self.index_from_camera2d
@@ -793,15 +887,15 @@ class CameraProjection(Transform):
     @property
     def extrinsic(self) -> FrameTransform:
         return self.camera3d_from_world
-        
+
     @property
-    def index_from_world(self) -> FrameTransform:
+    def index_from_world(self) -> Transform:
         proj = np.concatenate([np.eye(3), np.zeros((3, 1))], axis=1)
         camera2d_from_camera3d = Transform(proj, _inv=proj.T)
         return self.index_from_camera2d @ camera2d_from_camera3d @ self.camera3d_from_world
 
     @property
-    def world_from_index(self) -> FrameTransform:
+    def world_from_index(self) -> Transform:
         return self.index_from_world.inv
 
     @property
@@ -823,7 +917,7 @@ class CameraProjection(Transform):
         Returns:
             Point3D: the center of the camera in center.
         """
-        
+
         world_from_camera3d = self.camera3d_from_world.inv
         return world_from_camera3d(point(0, 0, 0))
 
@@ -839,7 +933,7 @@ class CameraProjection(Transform):
             Point3D: the camera center in the volume's IJK-space.
         """
         return volume.ijk_from_world @ self.center_in_world
- 
+
     def get_ray_transform(self, volume: vol.Volume) -> Transform:
         """Get the ray transform for the camera, in IJK-space.
 

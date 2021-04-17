@@ -171,4 +171,4 @@ class CArm(object):
         camera3d_from_isocenter = geo.FrameTransform.from_rt(R, t)
         isocenter_from_world = geo.FrameTransform.from_origin(isocenter)
 
-        return camera3d_from_isocenter @ isocenter_from_world
+        return geo.FrameTransform(camera3d_from_isocenter @ isocenter_from_world)
